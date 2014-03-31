@@ -1,4 +1,4 @@
 concurrent_filetransfer
 =======================
 
--- seminar concurrent programming
+- seminar concurrent programming
