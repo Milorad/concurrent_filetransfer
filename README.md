@@ -9,8 +9,8 @@
 > $  
 
 ### client
-> `$ ./test`  
-> `Usage:`  
+> `$ ./test  
+> Usage:`  
 > `        list files   :  # ./test list`  
 > `        create file  :  # ./test create <local-filename>`  
 > `        read file    :  # ./test read <remote-filename>`  
