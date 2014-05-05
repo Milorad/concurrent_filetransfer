@@ -6,9 +6,9 @@ compile
 make
 
 # server
-> $./run
-> ./run (start|stop|status)
-> $
+> $./run  
+> ./run (start|stop|status)  
+> $  
 
 # client
 > $ ./test
