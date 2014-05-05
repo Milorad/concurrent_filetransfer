@@ -11,7 +11,7 @@
 ### client
 > $ ./test  
 > Usage:  
-> \t        list files   :  # ./test list  
+> `        list files   :  # ./test list`  
 >         create file  :  # ./test create <local-filename>  
 >         read file    :  # ./test read <remote-filename>  
 >         update file  :  # ./test update <remote-filename> <local-filename>  
