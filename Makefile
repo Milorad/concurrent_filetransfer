@@ -7,16 +7,16 @@ LIBS=lib/genlib.a
 SEMFLAGS=-lpthread -lrt
 
 
-all: fclient fserver
+all: run test
 
 clean:
-	rm -f lib/genlib.a  fclient fserver lib/tcp-client.o lib/tcp-server.o lib/clientlib.o lib/genlib.o
+	rm -f lib/genlib.a  run test lib/tcp-client.o lib/tcp-server.o lib/clientlib.o lib/genlib.o
 
-fclient: fclient.c lib/genlib.a include/genlib.h
-	gcc $(CFLAGS) fclient.c $(LIBS) -o fclient $(SEMFLAGS)
+run: run.c lib/genlib.a include/genlib.h
+	gcc $(CFLAGS) run.c $(LIBS) -o run $(SEMFLAGS)
 
-fserver: fserver.c lib/genlib.a include/genlib.h
-	gcc $(CFLAGS) fserver.c $(LIBS) -o fserver $(SEMFLAGS)
+test: test.c lib/genlib.a include/genlib.h
+	gcc $(CFLAGS) test.c $(LIBS) -o test $(SEMFLAGS)
 
 lib/tcp-client.o: lib/tcp-client.c
 	gcc -c $(CFLAGS) lib/tcp-client.c -o lib/tcp-client.o $(SEMFLAGS)

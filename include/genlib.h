@@ -18,3 +18,4 @@ void usageclientparse(int argc, char *argv[]);
 
 void rc_check(int rc, const char *message);
 
+void writepid(pid_t pid);

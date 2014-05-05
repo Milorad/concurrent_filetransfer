@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <signal.h>		// kill
 #include <errno.h>		//errno variable
 
 #include <fcntl.h>
@@ -21,28 +22,120 @@
 
 //#endif
 void rc_check(int rc, const char *message);
+int pidfstatus();
+void writepid(pid_t pid);
 
 char *type;
 char *localfilename;
 char *remotefilename;
+FILE *pidfile; 
+char *pidfilepath = "run.pid";
 
 
-void usageserver(){
-	printf("I am usage.\n"); 
+void usageserver(char **argv){
+	printf("%s (start|stop|status)\n", argv[0]); 
 	exit(0);
 }
 
 void usageserverparse(int argc, char **argv){
 	 
+	if (argc == 1){
+		usageserver(argv);
+	}
+	if (argc == 2){
+		if(!strcmp(argv[1], "start")){
+			int rc = pidfstatus();
+			if (rc == -1){ // file does not exist
+				// ok O_o
+			}else{
+				printf("%s is already running(%d)\n", argv[0], rc);
+				exit(0);
+			}
+		}else if(!strcmp(argv[1], "stop")){
+			int rc = pidfstatus();
+			if (rc == -1){ // file does not exist
+				printf("%s is not running\n", argv[0]);
+				exit(0);
+			}
+			kill(rc, SIGTERM);
+			unlink(pidfilepath);
+			exit(0);
+		}else if(!strcmp(argv[1], "status")){
+			//printf("3: %s::\n", argv[1]); 
+			int rc = pidfstatus(); 
+			if (rc == -1){
+				printf("%s is not running\n", argv[0]); 
+			}else{
+				printf("%s is running(%d)\n", argv[0], rc);
+				 
+			}
+			exit(0);
+			 
+		}else{
+			usageserver(argv);
+		}
+	}
+}
+void writepid(pid_t pid){
+	pidfile = fopen(pidfilepath, "w"); 
+	if (pidfile == NULL){
+		fclose(pidfile); 
+		rc_check(5, "fopen() failed");
+	}
+	fprintf(pidfile, "%d", pid);
+	fclose(pidfile);
+}
+int pidfstatus(){
+	 
+	int rc = access( pidfilepath, F_OK );
+        if (rc == 0){ // file exists
+		pidfile = fopen(pidfilepath, "r");
+		if (pidfile == NULL){
+			fclose(pidfile);
+			rc_check(12, "fopen() failed");
+			
+		}
+		int filesize;  
+		int filereadsize;
+		char *filebuffer;
+		fseek(pidfile, 0L, SEEK_END);
+		filesize = ftell(pidfile);
+		fseek(pidfile, 0L, SEEK_SET);
+		filebuffer = (char *) malloc(sizeof(char) * (filesize + 1) ); 
+		if (filebuffer == NULL){
+			printf("could not malloc()!\n"); 
+			exit(1);
+		}
+		filebuffer[filesize+1] = '\000';
+		filereadsize = fread(filebuffer,sizeof(char),filesize,pidfile);
+		if (filereadsize == 0){
+			// file is empty, delete it
+			unlink(pidfilepath);
+		}
+		fclose(pidfile);
+		//check if PID really exists
+		int mypid = atoi(filebuffer);
+		if (mypid == 0){
+			errno = ESRCH;
+			rc_check(-1, "pid not int");
+			
+		}
+		int pidexists = kill(mypid, 0);
+		rc_check(pidexists, "kill(0) failed");
+		//printf("pidexists : %d\n", pidexists);
+		return mypid;
+	}else{ // file does not exist
+		return -1;
+	}
 }
 
 void usageclient(char **argv){
-	printf("\nUsage:\n\n");
-	printf("\tlist files   :\n\t  # %s list\n", argv[0]);
-	printf("\tcreate file  :\n\t  # %s create <local-filename>\n", argv[0]);
-	printf("\tread file    :\n\t  # %s read <remote-filename>\n", argv[0]);
-	printf("\tupdate file  :\n\t  # %s update <remote-filename> <local-filename>\n", argv[0]);
-	printf("\tdelete file  :\n\t  # %s delete <remote-filename>\n\n", argv[0]);
+	printf("Usage:\n");
+	printf("\tlist files   :  # %s list\n", argv[0]);
+	printf("\tcreate file  :  # %s create <local-filename>\n", argv[0]);
+	printf("\tread file    :  # %s read <remote-filename>\n", argv[0]);
+	printf("\tupdate file  :  # %s update <remote-filename> <local-filename>\n", argv[0]);
+	printf("\tdelete file  :  # %s delete <remote-filename>\n\n", argv[0]);
 	exit(0);
 }
 void usageclientparse(int argc, char **argv){

@@ -8,12 +8,14 @@
 #define SEMDEFINITION
 #endif
 
+/*
 union semun {
         int val;                
         struct semid_ds *buf;   
         unsigned short array[1];
         struct seminfo *__buf;  
 };
+*/
 
 struct zsss {
 	sem_t sem;
