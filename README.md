@@ -9,6 +9,7 @@
 > $  
 
 ### client
+```
 > $ ./test  
 > Usage:  
 >         list files   :  # ./test list  
@@ -17,3 +18,4 @@
 >         update file  :  # ./test update <remote-filename> <local-filename>  
 >         delete file  :  # ./test delete <remote-filename>  
 > $  
+```
