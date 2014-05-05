@@ -12,15 +12,11 @@
 #include <unistd.h>
 #include <time.h>
 
-
-
-
 //prevent error if the file will be included twice
 #ifndef GENLIB
 #define GENLIB
 #endif
 
-//#endif
 void rc_check(int rc, const char *message);
 int pidfstatus();
 void writepid(pid_t pid);
