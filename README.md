@@ -1,16 +1,14 @@
-concurrent_filetransfer
-=======================
+## concurrent_filetransfer
 
-compile
--------
-make
-
-# server
+### compile
+> make  
+  
+### server
 > $./run  
 > ./run (start|stop|status)  
 > $  
 
-# client
+### client
 > $ ./test  
 > Usage:  
 >         list files   :  # ./test list  
