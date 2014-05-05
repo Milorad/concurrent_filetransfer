@@ -1,4 +1,3 @@
-# automatically generated makefile by ./create-Makefile.pl
 
 CFLAGS=-Wall -g -O2 -std=gnu99 -I./include -L./lib 
 
