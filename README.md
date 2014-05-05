@@ -1,18 +1,16 @@
 concurrent_filetransfer
 =======================
 
-- seminar concurrent programming
-
 - compile
 make
 
-- server
-# ./run
+# server
+$./run
 ./run (start|stop|status)
-#
+$
 
--client
-# ./test
+# client
+$ ./test
 Usage:
         list files   :  # ./test list
         create file  :  # ./test create <local-filename>
@@ -20,4 +18,4 @@ Usage:
         update file  :  # ./test update <remote-filename> <local-filename>
         delete file  :  # ./test delete <remote-filename>
 
-#
+$
