@@ -10,7 +10,7 @@
 
 ### client
 > $ ./test  
-> Usage:  
+> Usage::
 >         list files   :  # ./test list  
 >         create file  :  # ./test create <local-filename>  
 >         read file    :  # ./test read <remote-filename>  
