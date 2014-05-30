@@ -22,7 +22,9 @@ struct file_create {
 int main(int argc, char *argv[]) {
 	usageclientparse(argc, argv);
 	 
+	//open socket
 	Socket = initConn();
+	//send different requests to the server
 	if (!strcmp(type, "list")){
 		f_list(Socket);
 	}else if(!strcmp(type, "create")){
@@ -34,7 +36,7 @@ int main(int argc, char *argv[]) {
 	}else if(!strcmp(type, "delete")){
 		f_delete(Socket, remotefilename);
 	}
-	//getresponse(Socket);
+	//getresponse
 	getresponse(type, Socket);
 	exit(0);
 

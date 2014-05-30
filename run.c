@@ -16,28 +16,36 @@
 #define RECVBUFFERSIZE 64
 #define SHMSZ 16777216
 
-struct storagedef newFile();
-struct storagedef zsem;
 
-int *storageshmid;
-int storage_shmid;
+//current storage shmid
+int *storageshmid;	
+int storage_shmid;	
+
+//if storage was grown, this is pointer to the previous storage
 int *storageshmid_prev;
 int storage_shmid_prev;
 
+//semaphore used in case storage grow is necessery
 sem_t *sem_value;
 int sem_shmid;
 int sem_semid;
 
+//size of current storage
 int *storemesize;
 int storemesize_shmid;
+
+//number of structs which are used
 int *storemeused;
 int storemeused_shmid;
 
+//size of previous storage
 int *storemesizeprev;
 int storemesizeprev_shmid;
 
-int rc; //to check return code
+//generic var to catch return codes
+int rc;
 
+//used to stop the server
 void signal_stopserver() {
 	printf("Shutting down server.\n");
 	freeStorageAll();
@@ -57,11 +65,9 @@ void signal_stopserver() {
 	exit(0);
 }
 
-void signal_pidcheck(){
-}
-
-
+//initialize vars
 void initGlobs(){
+	//number of slots used in current storage
 	storemeused_shmid= shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0660|SHM_W);
 	rc_check(storemeused_shmid, "shmget() failed!");
         storemeused =  (int *) shmat(storemeused_shmid, NULL, 0);
@@ -69,6 +75,7 @@ void initGlobs(){
 	rc = shmdt(storemeused);
 	rc_check(rc, "7-shmdt() failed!");
 	
+	//size of current storage, default 100
 	storemesize_shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0660|SHM_W);
 	rc_check(storemesize_shmid, "shmget() failed!");
 	storemesize =  (int *) shmat(storemesize_shmid, NULL, 0);
@@ -93,6 +100,7 @@ void initGlobs(){
 	rc = shmdt(storageshmid);
 	rc_check(rc, "10-shmdt() failed!");
 	 
+	//shmid of previous storage
 	storage_shmid_prev = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0660|SHM_W);
         rc_check(storage_shmid_prev, "shmget() failed!");
 	storageshmid_prev = (int *) shmat(storage_shmid_prev, NULL, 0);
@@ -100,7 +108,7 @@ void initGlobs(){
         rc = shmdt(storageshmid_prev);
 	rc_check(rc, "11-shmdt() failed!");
 
-	//
+	//semaphore in case storage grow is needed
 	sem_shmid = shmget(IPC_PRIVATE, sizeof(sem_t), IPC_CREAT | 0660|SHM_W);
 	rc_check(sem_shmid, "4-shmget() failed!");
 	sem_value = (sem_t *) shmat(sem_shmid, NULL, 0);
@@ -114,8 +122,8 @@ int main(int argc, char *argv[]) {
 	
 	usageserverparse(argc, argv);
 	
+	//create daemon
 	pid_t pidd;
-	 
 	pidd = fork();
 	if (pidd == -1){
 		rc_check(-1, "fork() failed");
@@ -125,6 +133,7 @@ int main(int argc, char *argv[]) {
 		writepid(getpid());
 		 
 		initGlobs(); 
+		//create serverSocket
 		serverSocket = initSocket();
 		// needed to stop
 		struct sigaction saint;
@@ -133,18 +142,11 @@ int main(int argc, char *argv[]) {
 		sigaddset(&saint.sa_mask, SIGTERM);
 		saint.sa_flags = 0;
 		sigaction(SIGTERM, &saint, NULL);
-		//need to check if pid exists
-		struct sigaction sachk;
-		sachk.sa_handler = signal_pidcheck;
-		sigemptyset(&sachk.sa_mask);
-		sigaddset(&sachk.sa_mask, SIGINT);
-		sachk.sa_flags = 0;
-		sigaction(SIGINT, &sachk, NULL);
 		
-		
-		// init storage. here are pointers to the files
+		// init storage. here are pointers to the structs
 		initStorageOnce(100);
 		initStorage(getStorageshmid(),0);
+		 
 		unsigned int totalFileBytesReceived;
 		while (TRUE){
 			clientSocket = accept(serverSocket, (struct sockaddr *) &clientAddr, &clientAddrLen);
@@ -152,88 +154,102 @@ int main(int argc, char *argv[]) {
 			//new process for new client
 			pid_t pid;
 			pid = fork();
-				if (pid == -1){ //ERROR
-					rc_check(-1, "fork() failed");
-				}else if(pid == 0){// CHILD
-					//shm
-					reallocStorage(); 
+			if (pid == -1){ //ERROR
+				rc_check(-1, "fork() failed");
+			}else if(pid == 0){// CHILD
+				//check if 80% of current storage is used. If so, grow storage
+				reallocStorage(); 
+				 
+				totalFileBytesReceived = 0;
+				//to store clientRequest type:list,create,read,update or delete
+				char type[64]; 
+				type[63] = '\0';
+				//store filename client requested
+				char filename[64];
+				filename[63] = '\0';
+				//store filesize cilent sent
+				char filesize[64];
+				filesize[63] = '\0';
+				//store clients file into heap first. Afterwards it will be copied to shared memory
+				char *recvBuffer = (char *) malloc(sizeof(char) * 64);
+				if (recvBuffer == NULL){
+					rc_check(12, "malloc() failed!");
+				}
+				 
+				//helper to parse first line received from client
+				int parseAction = 0;
+				while(TRUE){
+					char rBuffer[RECVBUFFERSIZE];
+					int recvMsgSize = recv(clientSocket, rBuffer, RECVBUFFERSIZE-1, 0);
 					 
-					//totalBytesReceived = 0;
-					totalFileBytesReceived = 0;
-					char type[64]; 
-					type[63] = '\0';
-					char filename[64];
-					filename[63] = '\0';
-					char filesize[64];
-					filesize[63] = '\0';
-					char *recvBuffer = (char *) malloc(sizeof(char) * 64);
-					if (recvBuffer == NULL){
-						rc_check(12, "malloc() failed!");
-					}
-					 
-					int parseAction = 0;
-
-					while(TRUE){
-						char rBuffer[RECVBUFFERSIZE];
-						int recvMsgSize = recv(clientSocket, rBuffer, RECVBUFFERSIZE-1, 0);
-						if (parseAction == 0){
-								char separator[]   = " \n";
-								char *token;
-								char *opt1 = "";
-								char *opt2 = "";
-								char *opt3 = "";
-								token = strtok( rBuffer, separator );
-								int counter = 0;
-								while( token != NULL ){
-									if (counter == 0){
-										opt1 = token;
-									}else if(counter == 1){
-										opt2 = token;
-									}else if(counter == 2){
-										opt3 = token;
-									}
-									token = strtok( NULL, separator );
-									counter++;
+					if (parseAction == 0){
+							/* Client is sending one of the following Requests
+							list\n
+							create filename length\n
+							read filename\n
+							update filename length\n
+							delete filename\n
+							*/
+							//split line
+							char separator[]   = " \n";
+							char *token;
+							char *opt1 = "";
+							char *opt2 = "";
+							char *opt3 = "";
+							token = strtok( rBuffer, separator );
+							int counter = 0;
+							while( token != NULL ){
+								if (counter == 0){
+									opt1 = token;
+								}else if(counter == 1){
+									opt2 = token;
+								}else if(counter == 2){
+									opt3 = token;
 								}
-								snprintf(type, sizeof(opt1), "%s", opt1);
-								if (!strncmp(opt1, "list", 4)){
-									break; 
-								}else if(!strncmp(opt1, "create", 6)){
-									snprintf(filename, sizeof(filename), "%s", opt2);
-									snprintf(filesize, sizeof(filesize), "%s", opt3);
-								}else if(!strncmp(opt1, "read", 4)){
-									snprintf(filename, sizeof(filename), "%s", opt2);
-									break;
-								}else if(!strncmp(opt1, "update", 6)){
-									snprintf(filename, sizeof(filename), "%s", opt2);
-									snprintf(filesize, sizeof(filesize), "%s", opt3);
-								}else if(!strncmp(opt1, "delete", 6)){
-									snprintf(filename, sizeof(filename), "%s", opt2);
-									break;
-								}
-								parseAction = 1;
-						}else{
-							totalFileBytesReceived += recvMsgSize;
-							strcpy(recvBuffer+strlen(recvBuffer), rBuffer);
-							if (atoi(filesize) == totalFileBytesReceived){
+								token = strtok( NULL, separator );
+								counter++;
+							}
+							//save received values
+							snprintf(type, sizeof(opt1), "%s", opt1);
+							if (!strncmp(opt1, "list", 4)){
+								break; 
+							}else if(!strncmp(opt1, "create", 6)){
+								snprintf(filename, sizeof(filename), "%s", opt2);
+								snprintf(filesize, sizeof(filesize), "%s", opt3);
+							}else if(!strncmp(opt1, "read", 4)){
+								snprintf(filename, sizeof(filename), "%s", opt2);
+								break;
+							}else if(!strncmp(opt1, "update", 6)){
+								snprintf(filename, sizeof(filename), "%s", opt2);
+								snprintf(filesize, sizeof(filesize), "%s", opt3);
+							}else if(!strncmp(opt1, "delete", 6)){
+								snprintf(filename, sizeof(filename), "%s", opt2);
 								break;
 							}
+							parseAction = 1;
+					}else{
+						totalFileBytesReceived += recvMsgSize;
+						strcpy(recvBuffer+strlen(recvBuffer), rBuffer);
+						if (atoi(filesize) == totalFileBytesReceived){
+							break;
 						}
-						memset(rBuffer, 0, sizeof(rBuffer));
 					}
-					if (!strncmp(type, "list", 4)){
-						listFiles(clientSocket);
-					}else if(!strncmp(type, "create", 6)){
-						createFile(clientSocket, recvBuffer, filename, filesize);
-					}else if(!strncmp(type, "read", 4)){
-						readFile(clientSocket, filename);
-					}else if(!strncmp(type, "update", 6)){
-						updateFile(clientSocket, recvBuffer, filename, filesize);
-					}else if(!strncmp(type, "delete", 6)){
-						deleteFile(clientSocket, filename);
-					}
-					exit(0);
-				}		
+					memset(rBuffer, 0, sizeof(rBuffer));
+				}
+				//do job client requested
+				if (!strncmp(type, "list", 4)){
+					listFiles(clientSocket);
+				}else if(!strncmp(type, "create", 6)){
+					createFile(clientSocket, recvBuffer, filename, filesize);
+				}else if(!strncmp(type, "read", 4)){
+					readFile(clientSocket, filename);
+				}else if(!strncmp(type, "update", 6)){
+					updateFile(clientSocket, recvBuffer, filename, filesize);
+				}else if(!strncmp(type, "delete", 6)){
+					deleteFile(clientSocket, filename);
+				}
+				exit(0);
+			}		
 			
 		}
 	}else{  //PARENT - daemonize child
@@ -242,6 +258,7 @@ int main(int argc, char *argv[]) {
 
 }
 
+//check if file exists first. If it does, update the content of the file
 void updateFile(int clientSocket, char *recvBuffer, char *filename, char *filesize){
 	unsigned long long fs = atoi(filesize);
 	struct storagedef address;
@@ -265,11 +282,12 @@ void updateFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 				addr->content = (char *) shmat(shmidcontent, NULL,0);
                                 addr->shmidcontent = shmidcontent;
 				
+				//write file from heap to shm
 				int i;
                                 for (i = 0; i <= atoi(filesize);i++){
                                         addr->content[i] = recvBuffer[i];
                                 }
-				
+				//set params
 				snprintf(addr->filename, sizeof(addr->filename), "%s", filename);
                                 addr->filesize = fs;
                                 addr->state = 1;
@@ -313,7 +331,6 @@ void deleteFile(int clientSocket, char *filename){
 	for (i=0; i < getStorageSize(); i++){
 		address = storage[i];
 		addr = (struct storagedef *) shmat(address.shmid, NULL, 0);
-		//addr = (struct storagedef *) shmat(address.shmid, NULL, 0);
 		if (!strncmp(addr->filename, filename, sizeof(addr->filename))){
 			sem_wait(&addr->sem);
                         fexist = FileExists(filename);
@@ -347,10 +364,6 @@ void deleteFile(int clientSocket, char *filename){
 		snprintf(response, sizeof response, "%s", "no such file\n");
         }
 	send(clientSocket, response, sizeof(response), 0);
-	
-
- 
-
 }
 
 void readFile(int clientSocket, char *filename){
@@ -400,6 +413,7 @@ void readFile(int clientSocket, char *filename){
         }
 	rc = shmdt(storage);
 	rc_check(rc, "23-shmdt() failed!");
+	// send response to the client
 	char response[63];
 	response[62] = '\0';
 	if (fexist == 0 ){
@@ -414,6 +428,7 @@ void readFile(int clientSocket, char *filename){
 	
 }
 
+//get list of stored files and send them to the client
 void listFiles(int clientSocket){
 	 
 	int i;
@@ -438,11 +453,13 @@ void listFiles(int clientSocket){
 	rc = shmdt(storage);
 	rc_check(rc, "25-shmdt() failed!");
 }
-
+//check if specifig file exists
+// return 1 = file exists
+// return 0 = file does not exist
 int FileExists(char *filename){
 	struct storagedef address;
         struct storagedef *addr;
-	int exist = 0;		//does not exist
+	int exist = 0;		//0 = does not exist, 1 = file exists
         int i;
 	struct storagedef *storage = (struct storagedef *) shmat(getStorageshmid(), NULL,0);
         for (i=0; i < getStorageSize(); i++){
@@ -459,10 +476,7 @@ int FileExists(char *filename){
 	return exist;
 }
 
-// return 0 = created
-// return 1 = exists
-
-
+//store the file into shm
 void createFile(int clientSocket, char *recvBuffer, char *filename, char *filesize){
 	unsigned long long fs = atoi(filesize); 
 	struct storagedef address;
@@ -508,6 +522,7 @@ void createFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 	}
 	rc = shmdt(storage);
 	rc_check(rc, "32-shmdt() failed!");
+	//send response to the client
 	char response[63];
 	response[62] = '\0';
 	if (fexist == 1){
@@ -521,7 +536,6 @@ void createFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 }
 
 void initStorageOnce(int storagesize){
-	//setStorageshmidprev(getStorageshmid());
 	int new_storage_shmid= shmget(IPC_PRIVATE, storagesize*sizeof(struct storagedef), IPC_CREAT | 0660|SHM_W);
 	rc_check(new_storage_shmid , "malloc() failed!");
 	setStorageshmid(new_storage_shmid);
@@ -566,11 +580,6 @@ void freeStorageAll(){
         rc_check(rc, "13-shmctl() failed!");
 
 }
-
-	
-	
-
-
 
 void initStorage(int init_shmid, int startint){
 	int i;
@@ -638,10 +647,7 @@ void reallocStorage(){
 			newaddr->semid = oldaddr->semid;
 			newaddr->filesize = oldaddr->filesize;
 			newaddr->shmidcontent = oldaddr->shmidcontent;
-			//newaddr->content = (char *) shmat(newaddr->shmidcontent, NULL, 0);
-			//oldaddr->content = (char *) shmat(oldaddr->shmidcontent, NULL, 0);
-			//int shmidold = oldaddr->shmidcontent;
-			//int shmidnew = newaddr->shmidcontent;
+			 
 			rc = shmdt(oldaddr);
 			rc_check(rc, "38-shmdt() failed!");
 			rc = shmdt(newaddr);
@@ -654,7 +660,6 @@ void reallocStorage(){
 		rc_check(rc, "41-shmdt() failed!");
 		freeStorage(getStorageSizePrev(),getStorageshmidprev());
 		 
-		//getall();
 	}
 	sem_post(sem_value);
 	rc = shmdt(sem_value);
@@ -742,8 +747,6 @@ int getUsed(){
 }
 
 void getall(){
-	//struct storagedef address;
-        //struct storagedef *addr;
 
 	int i;
 	struct storagedef *storage = (struct storagedef *) shmat(getStorageshmid(), NULL,0);
@@ -760,5 +763,4 @@ void getall(){
         }
         rc = shmdt(storage);
 	rc_check(rc, "52-shmdt() failed!");
-
 }
