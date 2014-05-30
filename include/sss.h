@@ -6,16 +6,36 @@
 
 #ifndef SEMDEFINITION
 #define SEMDEFINITION
-#endif
 
-union semun {
-        int val;                
-        struct semid_ds *buf;   
-        unsigned short array[1];
-        struct seminfo *__buf;  
-};
+void listFiles();
+void createFile(int clientSocket, char *recvbuffer, char *filename, char *filesize);
+void updateFile(int clientSocket, char *recvBuffer, char *filename, char *filesize);
+void readFile(int clientSocket, char *filename);
+void deleteFile(int clientSocket, char *filename);
 
-struct zsss {
+void initStorageOnce();
+
+void initStorage(int init_shmid, int startint);
+int getUsed();
+int getStorageSize();
+void setStorageSize(int newsize);
+int getStorageshmid();
+void setStorageshmid(int newshmid);
+int getStorageshmidprev();
+void setStorageshmidprev(int newshmidprev);
+void getall();
+int getStorageSizePrev();
+void setStorageSizePrev(int size);
+
+
+int FileExists(char *filename);
+
+void freeStorage(int size, int shmid);
+void freeStorageAll();
+void reallocStorage();
+void signal_stopserver();
+
+struct storagedef {
 	sem_t sem;
 	int semid;
 	int shmid;	//shared memory id
@@ -25,3 +45,4 @@ struct zsss {
 	int shmidcontent;
 	int state;	// 0 unused, 1 used
 };
+#endif

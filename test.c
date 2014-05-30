@@ -35,7 +35,8 @@ int main(int argc, char *argv[]) {
 	}else if(!strcmp(type, "delete")){
 		f_delete(Socket, remotefilename);
 	}
-	getresponse(Socket);
+	//getresponse(Socket);
+	getresponse(type, Socket);
 	exit(0);
 
 }

@@ -1,12 +1,11 @@
 
 #ifndef GENLIB
 #define GENLIB
-#endif
-
 
 char *type;
 char *localfilename;
 char *remotefilename;
+int pidfstatus();
 
 
 void usageserver(char *argv[]);
@@ -18,3 +17,5 @@ void usageclientparse(int argc, char *argv[]);
 
 void rc_check(int rc, const char *message);
 void writepid(pid_t pid);
+#endif
+

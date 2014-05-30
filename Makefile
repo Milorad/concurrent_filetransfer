@@ -1,5 +1,5 @@
 
-CFLAGS=-Wall -g -O2 -std=gnu99 -I./include -L./lib 
+CFLAGS=-Werror -Wall -g -O2 -std=gnu99 -I./include -L./lib 
 
 LIBS=lib/genlib.a 
 

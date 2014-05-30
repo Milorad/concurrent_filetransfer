@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include "genlib.h"
+#include "clientlib.h"
 
 
 //#define CHUNKSIZE 64
@@ -13,51 +15,28 @@
 
 
 void f_list(int Socket){
-	//zeile1 : type create
         char actiontype[63];
-        actiontype[62] = '\000';
-        sprintf(actiontype, "%s", "list");
+        actiontype[62] = '\0';
+        snprintf(actiontype, sizeof(actiontype), "%s", "list");
         send(Socket, actiontype, sizeof(actiontype), 0);
 
-        //zeile2 : list
-        //char filenamestr[63];
-        //sprintf(filenamestr, "%s", filename);
-        //filenamestr[62] = '\000';
-        //printf("z2 : %zu\n", sizeof(filenamestr));
-        //send(Socket, filenamestr, sizeof(filenamestr), 0); 
 }
 
 void f_create(int Socket, char *filename){
 	
 	FILE *fp;
 	fp = fopen(filename, "rb");
+	if (fp == NULL){
+		rc_check(-1, "fopen() failed!");
+	}
 	//get file size
 	fseek(fp, 0L, SEEK_END);
 	unsigned long long sz = ftell(fp);
 	
-	//zeile1 : type create
-	char actiontype[63];
-	actiontype[62] = '\000';
-	sprintf(actiontype, "%s", "create");
-	send(Socket, actiontype, sizeof(actiontype), 0);
-	 
-	//zeile2 : filename
-	char filenamestr[63];
-	sprintf(filenamestr, "%s", filename); 
-	filenamestr[62] = '\000';
-	send(Socket, filenamestr, sizeof(filenamestr), 0);
-	 
-	//zeile3 : filesize
-	char fsizestr[63];
-	sprintf(fsizestr, "%lld", sz);
-	fsizestr[62] = '\000';
-	send(Socket, fsizestr, sizeof(fsizestr), 0);
-	
-	//zeile4 : undefined for create
-	char remotefilename[63];
-	sprintf(remotefilename, "%s", "/etc/passwd");
-	remotefilename[62] = '\000';
-	send(Socket, remotefilename, sizeof(remotefilename), 0);
+	//int actionsize = (int) (sizeof("create ") + sizeof(filename) + 1 + sizeof(sz) + 1);
+	char action[63];
+	snprintf(action, sizeof action, "%s%s%s%llu%s", "create ", filename, " ", sz, "\n");
+	send(Socket, action, sizeof(action), 0);
 	 
 	//set pointer to the beginning of the file
         fseek(fp, 0L, SEEK_SET);
@@ -87,52 +66,28 @@ void f_create(int Socket, char *filename){
 
 void f_read(int Socket, char *filename){
 	
-	//zeile1: type
-	char actiontype[63];
-        actiontype[62] = '\000';
-        sprintf(actiontype, "%s", "read");
-        send(Socket, actiontype, sizeof(actiontype), 0);
-	
-	//zeile2 : filename
-        char filenamestr[63];
-        sprintf(filenamestr, "%s", filename);
-        filenamestr[62] = '\000';
-        send(Socket, filenamestr, sizeof(filenamestr), 0);
-
+	//int actionsize = (int) (sizeof("read ") + sizeof(filename) + 1);
+	char action[63];
+	snprintf(action, sizeof action, "%s%s%s", "read ", filename, "\n");
+	send(Socket, action, sizeof(action), 0);
 }
 
 void f_update(int Socket, char *localfilename, char *remotefilename){
 	 
 	FILE *fp;
         fp = fopen(localfilename, "rb");
+	if (fp == NULL){
+		rc_check(-1, "fopen() failed!");
+	}
         //get file size
         fseek(fp, 0L, SEEK_END);
         unsigned long long sz = ftell(fp);
 
-	//zeile1 : type create
-        char actiontype[63];
-        actiontype[62] = '\000';
-        sprintf(actiontype, "%s", "update");
-        send(Socket, actiontype, sizeof(actiontype), 0);
+        //int actionsize = (int) (sizeof("update ") + sizeof(remotefilename) + 1 + sizeof(sz) + 1);
+        char action[63];
+        snprintf(action, sizeof action, "%s%s%s%llu%s", "update ", remotefilename, " ", sz, "\n");
+        send(Socket, action, sizeof(action), 0);
 
-        //zeile2 : filename
-        char filenamestr[63];
-        sprintf(filenamestr, "%s", remotefilename);
-        filenamestr[62] = '\000';
-        send(Socket, filenamestr, sizeof(filenamestr), 0);
-
-        //zeile3 : filesize
-        char fsizestr[63];
-        sprintf(fsizestr, "%lld", sz);
-        fsizestr[62] = '\000';
-        send(Socket, fsizestr, sizeof(fsizestr), 0);
-	
-	//zeile4 : undefined for update
-        char undefined[63];
-        sprintf(undefined, "%s", "undefined");
-        undefined[62] = '\000';
-        send(Socket, undefined, sizeof(undefined), 0);
-	
 	//set pointer to the beginning of the file
         fseek(fp, 0L, SEEK_SET);
 
@@ -153,96 +108,113 @@ void f_update(int Socket, char *localfilename, char *remotefilename){
                 }
 
         }
-        //unsigned int totalbytesint =  atoll(fsizestr);
         fclose(fp);
 
 }
 
 void f_delete(int Socket, char *remotefilename){
-	//zeile1: type
-        char actiontype[63];
-        actiontype[62] = '\000';
-        sprintf(actiontype, "%s", "delete");
-        send(Socket, actiontype, sizeof(actiontype), 0);
 	
-	        //zeile2 : filename
-        char filenamestr[63];
-        sprintf(filenamestr, "%s", remotefilename);
-        filenamestr[62] = '\000';
-        send(Socket, filenamestr, sizeof(filenamestr), 0);
+	char action[63];
+        snprintf(action, sizeof action, "%s%s%s", "delete ", remotefilename, "\n");
+        send(Socket, action, sizeof(action), 0);
 
 }
 
-void getresponse(int Socket){
+void getresponse(char *type, int Socket){
 	unsigned int totalBytesReceived;
-	unsigned int totalFileBytesReceived;
+        unsigned int totalFileBytesReceived;
 	
-	char zeile1[64];
-	char messagesize[64];	
-	char zeile3[64];
-	//char zeile4[64];
+	//char zeile1[64];
+        //char messagesize[64];
+        //char zeile3[64];
+	
 	totalBytesReceived = 0;
         totalFileBytesReceived = 0;
+	
 	char *recvBuffer = (char *) malloc(sizeof(char) * 64);
-	if (recvBuffer == NULL){
-		rc_check(12, "malloc() failed!");
-	}
-	  
-	while(TRUE){
+	 if (recvBuffer == NULL){
+                rc_check(12, "malloc() failed!");
+        }
+        //char filename[64];
+        //char filesize[64];
+	 
+	int parseAction = 0;
+	int numberoffiles = 0;
+	int numberfilesCounter = 0;
+	char messagesize[64];
+	messagesize[63] = '\0';
+	char filename[64];
+	filename[63] = '\0';
+	//memset(filename, 0, sizeof(filename));
+        while(TRUE){
                 char rBuffer[BUFFERSIZE];
                 int recvMsgSize = recv(Socket, rBuffer, BUFFERSIZE-1, 0);
-		totalBytesReceived += recvMsgSize;
-		//printf("msgSize(%d)\n", recvMsgSize);
-		if (recvMsgSize == 0){
-			break;
-		}else{
-			if (totalBytesReceived == 63){
-				//list/create/read/update/delete
-				strcpy(zeile1, rBuffer);
-				//printf("zeile1: %s\n", zeile1);
-			}else if(totalBytesReceived == 126){
-				//content size
-				strcpy(messagesize, rBuffer);
-				recvBuffer = realloc(recvBuffer, atoi(rBuffer) * sizeof(char));
-				if (recvBuffer == NULL){
-					rc_check(12, "realloc() failed!");
+                totalBytesReceived += recvMsgSize;
+		if (parseAction == 0){
+			if (!strncmp(type, "list", 4) || !strncmp(type, "read", 4)){
+				char separator[]   = " \n";
+                       	 	char *token;
+                       	 	//char *opt1 = "";
+                       	 	//char *opt2 = "";
+                       	 	//char *opt3 = "";
+				token = strtok( rBuffer, separator );
+				int counter = 0;
+				int escape = 0; 
+				while( token != NULL ){
+					if (counter == 0){
+						if ((!strncmp(type, "read", 4)) && (!strncmp(token, "no", 4))){
+							escape = 1;
+							printf("no such file\n");
+							break;
+						}
+					}else if (counter ==1){
+						if (!strncmp(type, "list", 4)){
+							numberoffiles = atoi(token);
+							printf("ACK %d\n", numberoffiles);
+							if (numberoffiles == 0){
+								escape = 1;
+								break;
+							}
+						}else if (!strncmp(type, "read", 4)){
+							//printf("looki\n");
+							snprintf(filename, sizeof(filename), "%s", token);
+						}
+					}else if (counter == 2){
+						snprintf(messagesize, sizeof(messagesize), "%s", token);
+						printf("FILECONTENT %s %s\n", filename, messagesize);
+					}
+					counter++;
+                       	         	token = strtok(NULL, separator );
 				}
-                                memset(recvBuffer, 0, atoi(rBuffer));
-				//printf("messagesize: %s\n", messagesize);
-			}else if(totalBytesReceived == 189){
-				//list:size of list
-				//create:created or exists
-				//read:filesize
-				//update: updated or no such file or directory
-				//delete. deleted or no such file
-				strcpy(zeile3, rBuffer);
-				//printf("filename: %s\n", rBuffer);
-				if (!strcmp(zeile1, "create")){
-					//printf("%s %s\n", messagesize, zeile3); 
-					//break;
-				}else if (!strcmp(zeile1, "update")){
-					 
-				}else if (!strcmp(zeile1, "delete")){
-					 
+				parseAction = 1;
+				if (escape == 1){
+					break;
 				}
 			}else{
+				printf("%s", rBuffer);
+				break;
+			}
+ 
+		}else{
+			//printf(":messagesize:%s:%u:\n", messagesize, totalFileBytesReceived); 
+			//printf("numberoffiles(%d), numberfilesCounter(%d)", numberoffiles, numberfilesCounter);
+			
+			if (!strncmp(type, "read", 4)){
+				printf("%s", rBuffer);
 				totalFileBytesReceived += recvMsgSize;
-				strcpy(recvBuffer+strlen(recvBuffer), rBuffer);
-				//printf("rBuffer: %s\n", rBuffer);
-				//printf("size: %s\n", zeile3);
-				//printf("totalsize: %d\n", totalFileBytesReceived);
 				if (atoi(messagesize) == totalFileBytesReceived){
 					break;
 				}
-			} 
-			memset(rBuffer, 0, sizeof(rBuffer));
+			}else if (!strncmp(type, "list", 4)){
+				printf("%s", rBuffer);
+				numberfilesCounter++; 
+				if (numberoffiles == numberfilesCounter){
+					break;
+				}
+				 
+			}
 		}
-		
-        }
-	if (!strcmp(zeile1, "list")){
-		printf("Files : %s\n", zeile3);
+		memset(rBuffer, 0, sizeof(rBuffer));
 	}
-	printf("%s", recvBuffer);
-	free(recvBuffer);
-        close(Socket);
+	
 }

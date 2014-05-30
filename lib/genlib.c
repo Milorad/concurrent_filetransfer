@@ -11,22 +11,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
+#include "genlib.h"
 
-//prevent error if the file will be included twice
-#ifndef GENLIB
-#define GENLIB
-#endif
-
-void rc_check(int rc, const char *message);
 int pidfstatus();
-void writepid(pid_t pid);
 
 char *type;
 char *localfilename;
 char *remotefilename;
 FILE *pidfile; 
 char *pidfilepath = "run.pid";
-
 
 void usageserver(char **argv){
 	printf("%s (start|stop|status)\n", argv[0]); 
@@ -39,7 +32,7 @@ void usageserverparse(int argc, char **argv){
 		usageserver(argv);
 	}
 	if (argc == 2){
-		if(!strcmp(argv[1], "start")){
+		if(!strncmp(argv[1], "start", 5)){
 			int rc = pidfstatus();
 			if (rc == -1){ // file does not exist
 				// ok O_o
@@ -47,7 +40,7 @@ void usageserverparse(int argc, char **argv){
 				printf("%s is already running(%d)\n", argv[0], rc);
 				exit(0);
 			}
-		}else if(!strcmp(argv[1], "stop")){
+		}else if(!strncmp(argv[1], "stop", 4)){
 			int rc = pidfstatus();
 			if (rc == -1){ // file does not exist
 				printf("%s is not running\n", argv[0]);
@@ -56,7 +49,7 @@ void usageserverparse(int argc, char **argv){
 			kill(rc, SIGTERM);
 			unlink(pidfilepath);
 			exit(0);
-		}else if(!strcmp(argv[1], "status")){
+		}else if(!strncmp(argv[1], "status", 6)){
 			//printf("3: %s::\n", argv[1]); 
 			int rc = pidfstatus(); 
 			if (rc == -1){
@@ -102,7 +95,7 @@ int pidfstatus(){
 			printf("could not malloc()!\n"); 
 			exit(1);
 		}
-		filebuffer[filesize+1] = '\000';
+		filebuffer[filesize+1] = '\0';
 		filereadsize = fread(filebuffer,sizeof(char),filesize,pidfile);
 		if (filereadsize == 0){
 			// file is empty, delete it
@@ -142,8 +135,8 @@ void usageclientparse(int argc, char **argv){
 	int rc;
 	//check that provided filename is not longer then 64
 	if (argv[2]){
+	//if (argc >= 2){
 		int filenamechars = strlen(argv[2])+1;
-		//printf("chars: %d\n", filenamechars);
 		if (argv[2]){
 			if (filenamechars > 63){
 				printf("Filename is limited to 63 charachters!\n"); 
@@ -158,10 +151,10 @@ void usageclientparse(int argc, char **argv){
 		}
 	}
 	
-	if (!strcmp(argv[1], "list")){
+	if (!strncmp(argv[1], "list", 4)){
 		type = "list";
 		 
-	}else if(!strcmp(argv[1], "create")){
+	}else if(!strncmp(argv[1], "create", 6)){
 		if (argv[2]){ //2nd arg exists
 			rc = access( argv[2], F_OK );
 			if (rc == 0){ // file exists
@@ -176,14 +169,14 @@ void usageclientparse(int argc, char **argv){
 			printf("Please provide a filename!\n");
 			usageclient(argv);
 		}
-	}else if(!strcmp(argv[1], "read")){
+	}else if(!strncmp(argv[1], "read", 4)){
 		if (argv[2]){
 			type = "read";
 			remotefilename = argv[2];
 		}else{ //no 2nd arg
 			usageclient(argv);
 		}
-	}else if(!strcmp(argv[1], "update")){
+	}else if(!strncmp(argv[1], "update", 6)){
 		if (argv[2]){ //remove filename provided
 			if (argv[3]){
 				rc = access(argv[3], F_OK); 
@@ -202,7 +195,7 @@ void usageclientparse(int argc, char **argv){
 		}else{ //no 2nd arg
 			usageclient(argv);
 		}
-	}else if(!strcmp(argv[1], "delete")){
+	}else if(!strncmp(argv[1], "delete", 6)){
 		if (argv[2]){
 			type = "delete";
 			remotefilename = argv[2];
@@ -217,6 +210,7 @@ void usageclientparse(int argc, char **argv){
 void rc_check(int rc, const char *message){
 	int linuxErrorNumber = errno; 
 	const char *errorstr = strerror(linuxErrorNumber);
+	//printf("rc(%d)\n", rc);
 	if (rc < 0){
 		if (message != NULL) {
 			fprintf(stderr, " %s ", message);

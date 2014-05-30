@@ -1,7 +1,8 @@
 
 #ifndef TCPCLIENT
 #define TCPCLIENT
-#endif
+
+//int Socket; /*Client socket descriptor*/
 
 int serverSocket; /*Server socket descriptor*/
 int clientSocket; /*Client socket descriptor*/
@@ -18,3 +19,4 @@ unsigned short clientPort;
 
 
 int initConn ();
+#endif
