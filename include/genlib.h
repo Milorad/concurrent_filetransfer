@@ -1,6 +1,8 @@
-
 #ifndef GENLIB
 #define GENLIB
+/*
+used for client and server
+*/
 
 char *type;
 char *localfilename;

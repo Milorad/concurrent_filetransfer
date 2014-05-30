@@ -50,7 +50,6 @@ void usageserverparse(int argc, char **argv){
 			unlink(pidfilepath);
 			exit(0);
 		}else if(!strncmp(argv[1], "status", 6)){
-			//printf("3: %s::\n", argv[1]); 
 			int rc = pidfstatus(); 
 			if (rc == -1){
 				printf("%s is not running\n", argv[0]); 
@@ -111,7 +110,6 @@ int pidfstatus(){
 		}
 		int pidexists = kill(mypid, 0);
 		rc_check(pidexists, "kill(0) failed");
-		//printf("pidexists : %d\n", pidexists);
 		return mypid;
 	}else{ // file does not exist
 		return -1;
@@ -135,7 +133,6 @@ void usageclientparse(int argc, char **argv){
 	int rc;
 	//check that provided filename is not longer then 64
 	if (argv[2]){
-	//if (argc >= 2){
 		int filenamechars = strlen(argv[2])+1;
 		if (argv[2]){
 			if (filenamechars > 63){
@@ -210,7 +207,6 @@ void usageclientparse(int argc, char **argv){
 void rc_check(int rc, const char *message){
 	int linuxErrorNumber = errno; 
 	const char *errorstr = strerror(linuxErrorNumber);
-	//printf("rc(%d)\n", rc);
 	if (rc < 0){
 		if (message != NULL) {
 			fprintf(stderr, " %s ", message);
@@ -219,8 +215,6 @@ void rc_check(int rc, const char *message){
 			fprintf(stderr, "Undefined message by fserver: rc(%d): %s\n", rc, errorstr);
 		}
 		exit(1); 
-	}else{
-		//fprintf(stdout, "rc(%d): %s : %s\n", rc, message, errorstr);
 	}
 	fflush(stderr);
 	fflush(stdout);

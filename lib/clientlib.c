@@ -8,18 +8,14 @@
 #include "genlib.h"
 #include "clientlib.h"
 
-
-//#define CHUNKSIZE 64
 #define BUFFERSIZE 64
 #define TRUE 1
-
 
 void f_list(int Socket){
         char actiontype[63];
         actiontype[62] = '\0';
         snprintf(actiontype, sizeof(actiontype), "%s", "list");
         send(Socket, actiontype, sizeof(actiontype), 0);
-
 }
 
 void f_create(int Socket, char *filename){
@@ -33,7 +29,6 @@ void f_create(int Socket, char *filename){
 	fseek(fp, 0L, SEEK_END);
 	unsigned long long sz = ftell(fp);
 	
-	//int actionsize = (int) (sizeof("create ") + sizeof(filename) + 1 + sizeof(sz) + 1);
 	char action[63];
 	snprintf(action, sizeof action, "%s%s%s%llu%s", "create ", filename, " ", sz, "\n");
 	send(Socket, action, sizeof(action), 0);
@@ -59,14 +54,10 @@ void f_create(int Socket, char *filename){
 		
 	}
         fclose(fp);
-	 
-	//unsigned int totalbytesint =  atoll(fsizestr);
-
 }
 
 void f_read(int Socket, char *filename){
 	
-	//int actionsize = (int) (sizeof("read ") + sizeof(filename) + 1);
 	char action[63];
 	snprintf(action, sizeof action, "%s%s%s", "read ", filename, "\n");
 	send(Socket, action, sizeof(action), 0);
@@ -83,7 +74,6 @@ void f_update(int Socket, char *localfilename, char *remotefilename){
         fseek(fp, 0L, SEEK_END);
         unsigned long long sz = ftell(fp);
 
-        //int actionsize = (int) (sizeof("update ") + sizeof(remotefilename) + 1 + sizeof(sz) + 1);
         char action[63];
         snprintf(action, sizeof action, "%s%s%s%llu%s", "update ", remotefilename, " ", sz, "\n");
         send(Socket, action, sizeof(action), 0);
@@ -109,7 +99,6 @@ void f_update(int Socket, char *localfilename, char *remotefilename){
 
         }
         fclose(fp);
-
 }
 
 void f_delete(int Socket, char *remotefilename){
@@ -124,10 +113,6 @@ void getresponse(char *type, int Socket){
 	unsigned int totalBytesReceived;
         unsigned int totalFileBytesReceived;
 	
-	//char zeile1[64];
-        //char messagesize[64];
-        //char zeile3[64];
-	
 	totalBytesReceived = 0;
         totalFileBytesReceived = 0;
 	
@@ -135,9 +120,8 @@ void getresponse(char *type, int Socket){
 	 if (recvBuffer == NULL){
                 rc_check(12, "malloc() failed!");
         }
-        //char filename[64];
-        //char filesize[64];
 	 
+	//helper to parse first line received
 	int parseAction = 0;
 	int numberoffiles = 0;
 	int numberfilesCounter = 0;
@@ -145,7 +129,6 @@ void getresponse(char *type, int Socket){
 	messagesize[63] = '\0';
 	char filename[64];
 	filename[63] = '\0';
-	//memset(filename, 0, sizeof(filename));
         while(TRUE){
                 char rBuffer[BUFFERSIZE];
                 int recvMsgSize = recv(Socket, rBuffer, BUFFERSIZE-1, 0);
@@ -154,9 +137,6 @@ void getresponse(char *type, int Socket){
 			if (!strncmp(type, "list", 4) || !strncmp(type, "read", 4)){
 				char separator[]   = " \n";
                        	 	char *token;
-                       	 	//char *opt1 = "";
-                       	 	//char *opt2 = "";
-                       	 	//char *opt3 = "";
 				token = strtok( rBuffer, separator );
 				int counter = 0;
 				int escape = 0; 
@@ -176,7 +156,6 @@ void getresponse(char *type, int Socket){
 								break;
 							}
 						}else if (!strncmp(type, "read", 4)){
-							//printf("looki\n");
 							snprintf(filename, sizeof(filename), "%s", token);
 						}
 					}else if (counter == 2){
@@ -196,8 +175,6 @@ void getresponse(char *type, int Socket){
 			}
  
 		}else{
-			//printf(":messagesize:%s:%u:\n", messagesize, totalFileBytesReceived); 
-			//printf("numberoffiles(%d), numberfilesCounter(%d)", numberoffiles, numberfilesCounter);
 			
 			if (!strncmp(type, "read", 4)){
 				printf("%s", rBuffer);

@@ -1,7 +1,9 @@
-
 #ifndef CLIENTLIB
 #define CLIENTLIB
 
+/*
+functions used by client
+*/
 
 void f_list(int Socket);
 void f_create(int Socket, char *filename);
