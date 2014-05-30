@@ -6,7 +6,6 @@
 #include "include/clientlib.h"
 #include <netinet/in.h>		//in_addr
 #include <string.h>
-//#include "include/shm_header.h"
 
 #define TRUE 1
 #define FALSE 0
