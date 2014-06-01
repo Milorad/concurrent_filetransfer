@@ -3,7 +3,7 @@ CFLAGS=-Werror -Wall -g -O2 -std=gnu99 -I./include -L./lib
 
 LIBS=lib/genlib.a 
 
-SEMFLAGS=-lpthread -lrt
+SEMFLAGS=-lpthread -lrt -lm
 
 
 all: run test

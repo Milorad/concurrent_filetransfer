@@ -15,6 +15,5 @@ unsigned int clientAddrLen;
 unsigned short serverPort;
 unsigned short clientPort;
 
-
 int initSocket();
 #endif

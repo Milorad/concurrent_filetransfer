@@ -178,9 +178,20 @@ int main(int argc, char *argv[]) {
 				 
 				//helper to parse first line received from client
 				int parseAction = 0;
+				//size_t bufused = 0;
+				//size_t buf_remain = sizeof(RECVBUFFERSIZE) - bufused;
 				while(TRUE){
 					char rBuffer[RECVBUFFERSIZE];
+					//int recvMsgSize = recv(clientSocket, rBuffer, RECVBUFFERSIZE-1, MSG_DONTWAIT);
 					int recvMsgSize = recv(clientSocket, rBuffer, RECVBUFFERSIZE-1, 0);
+					//char *c;
+					//c = (char *) memchr (rBuffer, '\n', sizeof(rBuffer));
+					//if (c == NULL){
+						 
+					//}else{
+						//printf("\\n found in rBuffer!\n");
+						//printf("%s", rBuffer);
+					//}
 					 
 					if (parseAction == 0){
 							/* Client is sending one of the following Requests
@@ -190,6 +201,14 @@ int main(int argc, char *argv[]) {
 							update filename length\n
 							delete filename\n
 							*/
+							int t;
+							for (t = 0; t < 64; t++){
+								if (rBuffer[t] == '\n'){
+                                                                        //printf(" TU SI !!!%d\n", t);
+                                                                        t++;
+									break;
+                                                                }
+							}
 							//split line
 							char separator[]   = " \n";
 							char *token;
@@ -226,10 +245,14 @@ int main(int argc, char *argv[]) {
 								snprintf(filename, sizeof(filename), "%s", opt2);
 								break;
 							}
+							//put stuff after \n into the buffer
+							totalFileBytesReceived = sizeof(rBuffer)-t-1;
+							strncpy(recvBuffer, rBuffer+t, sizeof(rBuffer)-t-1);
 							parseAction = 1;
 					}else{
 						totalFileBytesReceived += recvMsgSize;
-						strcpy(recvBuffer+strlen(recvBuffer), rBuffer);
+						//strcpy(recvBuffer+strlen(recvBuffer), rBuffer);
+						strncpy(recvBuffer+strlen(recvBuffer), rBuffer,sizeof(rBuffer));
 						if (atoi(filesize) == totalFileBytesReceived){
 							break;
 						}

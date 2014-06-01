@@ -7,6 +7,8 @@
 #include <arpa/inet.h>  /* sockaddr_in , inet_addr() */
 #include <unistd.h>     //sleep
 
+#define TCPCLIENT
+
 
 int initConn(){
 	char *serverIP = "127.0.0.1";

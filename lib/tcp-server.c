@@ -9,6 +9,7 @@
 #include "tcp-server.h"
 #include <string.h>
 
+#define TCPSERVER
 #define MAXCONNECTIONS 5
 
 int initSocket(){

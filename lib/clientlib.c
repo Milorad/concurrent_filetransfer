@@ -7,15 +7,18 @@
 #include <sys/socket.h>
 #include "genlib.h"
 #include "clientlib.h"
+#include "math.h"
 
+#define CLIENTLIB
 #define BUFFERSIZE 64
 #define TRUE 1
 
 void f_list(int Socket){
-        char actiontype[63];
-        actiontype[62] = '\0';
-        snprintf(actiontype, sizeof(actiontype), "%s", "list");
-        send(Socket, actiontype, sizeof(actiontype), 0);
+	char *action = malloc(sizeof(char) * 6);
+	action[5] = '\0';
+        snprintf(action, 5, "%s", "list\n");
+        send(Socket, action, 5, 0);
+	free(action);
 }
 
 void f_create(int Socket, char *filename){
@@ -29,9 +32,13 @@ void f_create(int Socket, char *filename){
 	fseek(fp, 0L, SEEK_END);
 	unsigned long long sz = ftell(fp);
 	
-	char action[63];
-	snprintf(action, sizeof action, "%s%s%s%llu%s", "create ", filename, " ", sz, "\n");
-	send(Socket, action, sizeof(action), 0);
+	int szl =  (int)log10(sz)+1;
+	int msgsize = 7 + strlen(filename) + 1 + szl + 2;
+	char *action = malloc ( sizeof(char) * msgsize);
+						// 7           11        1  4     1 = 24
+	snprintf(action, msgsize, "%s%s%s%llu%s", "create ", filename, " ", sz, "\n");
+	send(Socket, action, msgsize-1, 0);
+	free(action);
 	 
 	//set pointer to the beginning of the file
         fseek(fp, 0L, SEEK_SET);
@@ -58,9 +65,12 @@ void f_create(int Socket, char *filename){
 
 void f_read(int Socket, char *filename){
 	
-	char action[63];
-	snprintf(action, sizeof action, "%s%s%s", "read ", filename, "\n");
-	send(Socket, action, sizeof(action), 0);
+	int msgsize = 5+ strlen(filename) + 1 + 2;
+	char *action = malloc(sizeof(char) * msgsize);
+	action[msgsize-1] = '\0';
+	snprintf(action, msgsize, "%s%s%s", "read ", filename, "\n");
+	send(Socket, action, msgsize-1, 0);
+	free(action);
 }
 
 void f_update(int Socket, char *localfilename, char *remotefilename){
@@ -74,9 +84,13 @@ void f_update(int Socket, char *localfilename, char *remotefilename){
         fseek(fp, 0L, SEEK_END);
         unsigned long long sz = ftell(fp);
 
-        char action[63];
-        snprintf(action, sizeof action, "%s%s%s%llu%s", "update ", remotefilename, " ", sz, "\n");
-        send(Socket, action, sizeof(action), 0);
+	int szl =  (int)log10(sz)+1;
+	int msgsize = 7 + strlen(remotefilename) + 1 + szl + 2;
+        char *action = malloc ( sizeof(char) * msgsize);
+	action[msgsize-1] = '\0';
+        snprintf(action, msgsize, "%s%s%s%llu%s", "update ", remotefilename, " ", sz, "\n");
+        send(Socket, action, msgsize-1, 0);
+	free(action);
 
 	//set pointer to the beginning of the file
         fseek(fp, 0L, SEEK_SET);
@@ -103,10 +117,13 @@ void f_update(int Socket, char *localfilename, char *remotefilename){
 
 void f_delete(int Socket, char *remotefilename){
 	
-	char action[63];
-        snprintf(action, sizeof action, "%s%s%s", "delete ", remotefilename, "\n");
-        send(Socket, action, sizeof(action), 0);
-
+	int msgsize = 7 + strlen(remotefilename) + 2;
+	
+	char *action = malloc ( sizeof(char) * msgsize);
+	action[msgsize] = '\0';
+        snprintf(action, msgsize, "%s%s%s", "delete ", remotefilename, "\n");
+        send(Socket, action, msgsize-1, 0);
+	
 }
 
 void getresponse(char *type, int Socket){

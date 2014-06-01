@@ -13,6 +13,8 @@
 #include <time.h>
 #include "genlib.h"
 
+#define GENLIB
+
 int pidfstatus();
 
 char *type;
