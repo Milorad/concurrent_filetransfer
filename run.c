@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
 					deleteFile(clientSocket, filename);
 				}
 				free(recvBuffer);
-				//exit will cleanup all malloc'ed heap! see documentation
+				//exit will cleanup all malloc'ed heap anyway
 				exit(0);
 			}		
 			
