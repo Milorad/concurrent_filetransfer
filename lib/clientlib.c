@@ -35,6 +35,7 @@ void f_create(int Socket, char *filename){
 	int szl =  (int)log10(sz)+1;
 	int msgsize = 7 + strlen(filename) + 1 + szl + 2;
 	char *action = malloc ( sizeof(char) * msgsize);
+	action[msgsize-1] = '\0';
 						// 7           11        1  4     1 = 24
 	snprintf(action, msgsize, "%s%s%s%llu%s", "create ", filename, " ", sz, "\n");
 	send(Socket, action, msgsize-1, 0);
@@ -118,7 +119,6 @@ void f_update(int Socket, char *localfilename, char *remotefilename){
 void f_delete(int Socket, char *remotefilename){
 	
 	int msgsize = 7 + strlen(remotefilename) + 2;
-	
 	char *action = malloc ( sizeof(char) * msgsize);
 	action[msgsize] = '\0';
         snprintf(action, msgsize, "%s%s%s", "delete ", remotefilename, "\n");
@@ -126,89 +126,173 @@ void f_delete(int Socket, char *remotefilename){
 	
 }
 
-void getresponse(char *type, int Socket){
-	unsigned int totalBytesReceived;
-        unsigned int totalFileBytesReceived;
+void getResponseUpdate(int Socket){
+        char rBuffer[BUFFERSIZE];
+        recv(Socket, rBuffer, BUFFERSIZE-1, 0);
+        printf("%s", rBuffer);
+	close(Socket);
+}
+
+void getResponseDelete(int Socket){
+        char rBuffer[BUFFERSIZE];
+        recv(Socket, rBuffer, BUFFERSIZE-1, 0);
+        printf("%s", rBuffer);
+	close(Socket);
+}
+
+void getResponseRead(int Socket){
+	int parseAction = 0;
+	int filesize = 0;
+	char filename[64];;
+	filename[63] = '\0'; 
+	unsigned int totalFileBytesReceived = 0;
 	
-	totalBytesReceived = 0;
-        totalFileBytesReceived = 0;
-	
-	char *recvBuffer = (char *) malloc(sizeof(char) * 64);
-	 if (recvBuffer == NULL){
-                rc_check(12, "malloc() failed!");
-        }
-	 
-	//helper to parse first line received
+	char rBuffer[BUFFERSIZE];
+	while(TRUE){
+		int recvMsgSize = recv(Socket, rBuffer, BUFFERSIZE-1, MSG_DONTWAIT);
+		if (recvMsgSize < 0 && errno == EAGAIN) {
+                        /* no data for now, call back when the socket is readable */
+                        continue;
+                }
+		if (parseAction == 0){
+			//save buffer for later use
+			char *rBufferSave = strdup(rBuffer);
+			if (rBufferSave == NULL){
+				rc_check(12, "strdup() failed!");
+			}
+			
+			char *token = strtok( rBuffer, " \n" );
+			if (!strncmp(token, "no", 2)){
+				printf("no such file\n");
+				exit(0);
+			}
+			printf("%s ", token);
+			token = strtok( NULL, " \n" );
+			strncpy(filename, token, strlen(token));
+			printf("%s ", filename);
+			token = strtok( NULL, " \n" );
+			filesize = atoi(token);
+			printf("%d\n", filesize);
+			
+			int t;
+			for (t = 0; t < 63; t++){
+				if (rBufferSave[t] == '\n'){
+					t++;
+					break;
+				} 
+			}
+			if (recvMsgSize == t){
+				 
+			}else{
+				char *recvBuffer =(char *) malloc(sizeof(char) * 64);
+				if (recvBuffer == NULL){
+					rc_check(12, "realloc() failed!");
+				}
+				totalFileBytesReceived = sizeof(rBuffer)-t-1;
+				strncpy(recvBuffer, rBuffer+t, sizeof(rBuffer)-t-1);
+				printf("%s", recvBuffer);
+				free(recvBuffer);
+			}
+			parseAction = 1;
+		}else{
+			printf("%s", rBuffer);
+			totalFileBytesReceived += recvMsgSize;
+               		if (filesize == totalFileBytesReceived){
+               	 		break;
+                	}
+		}
+		memset(rBuffer, 0, sizeof(rBuffer));
+
+	}
+	close(Socket);
+}
+
+void getResponseList(int Socket){
 	int parseAction = 0;
 	int numberoffiles = 0;
-	int numberfilesCounter = 0;
-	char messagesize[64];
-	messagesize[63] = '\0';
-	char filename[64];
-	filename[63] = '\0';
-        while(TRUE){
-                char rBuffer[BUFFERSIZE];
-                int recvMsgSize = recv(Socket, rBuffer, BUFFERSIZE-1, 0);
-                totalBytesReceived += recvMsgSize;
+	int filecounter = 0;
+	char rBuffer[BUFFERSIZE];
+	while(TRUE){
+		int size = recv(Socket, rBuffer, BUFFERSIZE-1, MSG_DONTWAIT); 
+		if (size < 0 && errno == EAGAIN) {
+			/* no data for now, call back when the socket is readable */
+			continue;
+		}
 		if (parseAction == 0){
-			if (!strncmp(type, "list", 4) || !strncmp(type, "read", 4)){
-				char separator[]   = " \n";
-                       	 	char *token;
-				token = strtok( rBuffer, separator );
-				int counter = 0;
-				int escape = 0; 
-				while( token != NULL ){
-					if (counter == 0){
-						if ((!strncmp(type, "read", 4)) && (!strncmp(token, "no", 4))){
-							escape = 1;
-							printf("no such file\n");
-							break;
-						}
-					}else if (counter ==1){
-						if (!strncmp(type, "list", 4)){
-							numberoffiles = atoi(token);
-							printf("ACK %d\n", numberoffiles);
-							if (numberoffiles == 0){
-								escape = 1;
-								break;
-							}
-						}else if (!strncmp(type, "read", 4)){
-							snprintf(filename, sizeof(filename), "%s", token);
-						}
-					}else if (counter == 2){
-						snprintf(messagesize, sizeof(messagesize), "%s", token);
-						printf("FILECONTENT %s %s\n", filename, messagesize);
-					}
-					counter++;
-                       	         	token = strtok(NULL, separator );
-				}
-				parseAction = 1;
-				if (escape == 1){
-					break;
-				}
-			}else{
-				printf("%s", rBuffer);
+			char *rBufferSave = strdup(rBuffer);
+			char *token = strtok( rBuffer, " \n" );
+			printf("%s ", token);
+			token = strtok( NULL, " \n" );
+			numberoffiles = atoi(token);
+			printf("%d\n", numberoffiles);
+			if (numberoffiles == 0){
 				break;
 			}
- 
-		}else{
-			
-			if (!strncmp(type, "read", 4)){
-				printf("%s", rBuffer);
-				totalFileBytesReceived += recvMsgSize;
-				if (atoi(messagesize) == totalFileBytesReceived){
-					break;
+			while (token != NULL){
+				token = strtok( NULL, " \n" );
+				if (token != NULL){
+					filecounter++;
+					printf("%s\n", token);
 				}
-			}else if (!strncmp(type, "list", 4)){
-				printf("%s", rBuffer);
-				numberfilesCounter++; 
-				if (numberoffiles == numberfilesCounter){
-					break;
+			}
+			//filecounter++;
+			 
+			int t;
+                        for (t = 0; t < 63; t++){
+                                if (rBufferSave[t] == '\n'){
+                                        t++;
+                                        break;
+                                }
+                        }
+			//printf("saveeeme(%d)-t(%d)\n",  size, t);
+			if (numberoffiles == t){
+				//printf("not equal(%s)\n", rBuffer);
+				break;
+			}else{
+				char *recvBuffer = (char *) malloc(sizeof(char) * 64);
+				if (recvBuffer == NULL){
+					
 				}
+				strncpy(recvBuffer, rBuffer+t, sizeof(rBuffer)-t-1);
+				printf("%s", recvBuffer);
 				 
+			}
+			parseAction = 1;
+			
+		}else{
+			// count \n
+			int t;
+			for (t = 0; t < 63; t++){
+				if (rBuffer[t] == '\n'){
+					filecounter++;
+				}
+			}
+			
+			printf("%s", rBuffer);
+			//filecounter++;
+			//printf("%d-%d\n", numberoffiles, filecounter);
+			if (numberoffiles == filecounter){
+				break;
 			}
 		}
 		memset(rBuffer, 0, sizeof(rBuffer));
 	}
-	
+	close(Socket);
 }
+
+void getResponseCreate(int Socket){
+	char rBuffer[BUFFERSIZE];
+	while(TRUE){
+                int size = recv(Socket, rBuffer, BUFFERSIZE-1, MSG_DONTWAIT);
+                if (size < 0 && errno == EAGAIN) {
+                        /* no data for now, call back when the socket is readable */
+                        continue;
+                }
+		printf("%s", rBuffer);
+		break;
+	}
+	
+	close(Socket);
+}
+
+

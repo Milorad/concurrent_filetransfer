@@ -9,6 +9,7 @@
 #include <string.h> 
 #include <signal.h>
 #include <regex.h>
+#include "math.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -164,12 +165,15 @@ int main(int argc, char *argv[]) {
 				//to store clientRequest type:list,create,read,update or delete
 				char type[64]; 
 				type[63] = '\0';
+				memset(type, 0, sizeof(type));
 				//store filename client requested
 				char filename[64];
 				filename[63] = '\0';
+				memset(filename, 0, sizeof(filename));
 				//store filesize cilent sent
 				char filesize[64];
 				filesize[63] = '\0';
+				memset(filesize, 0, sizeof(filesize));
 				//store clients file into heap first. Afterwards it will be copied to shared memory
 				char *recvBuffer = (char *) malloc(sizeof(char) * 64);
 				if (recvBuffer == NULL){
@@ -178,20 +182,9 @@ int main(int argc, char *argv[]) {
 				 
 				//helper to parse first line received from client
 				int parseAction = 0;
-				//size_t bufused = 0;
-				//size_t buf_remain = sizeof(RECVBUFFERSIZE) - bufused;
 				while(TRUE){
 					char rBuffer[RECVBUFFERSIZE];
-					//int recvMsgSize = recv(clientSocket, rBuffer, RECVBUFFERSIZE-1, MSG_DONTWAIT);
 					int recvMsgSize = recv(clientSocket, rBuffer, RECVBUFFERSIZE-1, 0);
-					//char *c;
-					//c = (char *) memchr (rBuffer, '\n', sizeof(rBuffer));
-					//if (c == NULL){
-						 
-					//}else{
-						//printf("\\n found in rBuffer!\n");
-						//printf("%s", rBuffer);
-					//}
 					 
 					if (parseAction == 0){
 							/* Client is sending one of the following Requests
@@ -204,7 +197,6 @@ int main(int argc, char *argv[]) {
 							int t;
 							for (t = 0; t < 64; t++){
 								if (rBuffer[t] == '\n'){
-                                                                        //printf(" TU SI !!!%d\n", t);
                                                                         t++;
 									break;
                                                                 }
@@ -235,23 +227,35 @@ int main(int argc, char *argv[]) {
 							}else if(!strncmp(opt1, "create", 6)){
 								snprintf(filename, sizeof(filename), "%s", opt2);
 								snprintf(filesize, sizeof(filesize), "%s", opt3);
+								recvBuffer  = (char *) realloc(recvBuffer,  sizeof(char) * atoi(filesize)+ 1);
+								if (recvBuffer == NULL){
+									rc_check(12, "realloc() failed!"); 
+								}
 							}else if(!strncmp(opt1, "read", 4)){
 								snprintf(filename, sizeof(filename), "%s", opt2);
 								break;
 							}else if(!strncmp(opt1, "update", 6)){
 								snprintf(filename, sizeof(filename), "%s", opt2);
 								snprintf(filesize, sizeof(filesize), "%s", opt3);
+								recvBuffer  = (char *) realloc(recvBuffer,  sizeof(char) * atoi(filesize)+ 1);
+								if (recvBuffer == NULL){
+									rc_check(12, "realloc() failed!");
+								}
 							}else if(!strncmp(opt1, "delete", 6)){
 								snprintf(filename, sizeof(filename), "%s", opt2);
 								break;
 							}
-							//put stuff after \n into the buffer
-							totalFileBytesReceived = sizeof(rBuffer)-t-1;
-							strncpy(recvBuffer, rBuffer+t, sizeof(rBuffer)-t-1);
+							// ==  > rbuffer has only meta date "create filename\n", no content
+							if (recvMsgSize == t){
+
+							}else{
+								//put stuff after \n into the buffer
+								totalFileBytesReceived = sizeof(rBuffer)-t-1;
+								strncpy(recvBuffer, rBuffer+t, sizeof(rBuffer)-t-1);
+							}
 							parseAction = 1;
 					}else{
 						totalFileBytesReceived += recvMsgSize;
-						//strcpy(recvBuffer+strlen(recvBuffer), rBuffer);
 						strncpy(recvBuffer+strlen(recvBuffer), rBuffer,sizeof(rBuffer));
 						if (atoi(filesize) == totalFileBytesReceived){
 							break;
@@ -271,6 +275,8 @@ int main(int argc, char *argv[]) {
 				}else if(!strncmp(type, "delete", 6)){
 					deleteFile(clientSocket, filename);
 				}
+				//free(bufferaddr);
+				//exit will cleanup all malloc'ed heap! see documentation
 				exit(0);
 			}		
 			
@@ -335,14 +341,27 @@ void updateFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 	rc = shmdt(storage);
 	rc_check(rc, "16-shmdt() failed!");
 	// send response
-	char response[63];
-        response[62] = '\0';
+	char *response;
+	int msgsize;
         if (fexist == 1){
-		snprintf(response, sizeof response, "%s", "updated\n");
+		msgsize = 9;
+		response = (char *) malloc(sizeof(char) * msgsize + 1);
+		if (response == NULL){
+			rc_check(12, "malloc() failed!");
+		}
+		response[msgsize] = '\0';
+		snprintf(response, msgsize, "%s", "updated\n");
         }else{
-		snprintf(response, sizeof response, "%s", "no such file\n");
+		msgsize = 14;
+		response = (char *) malloc(sizeof(char) * msgsize + 1);
+		if (response == NULL){
+                        rc_check(12, "malloc() failed!");
+                }
+		response[msgsize] = '\0';
+		snprintf(response, msgsize, "%s", "no such file\n");
         }
-	send(clientSocket, response, sizeof(response), 0);
+	send(clientSocket, response, msgsize, 0);
+	free(response);
 }
 
 void deleteFile(int clientSocket, char *filename){
@@ -379,14 +398,28 @@ void deleteFile(int clientSocket, char *filename){
 	}
 	rc = shmdt(storage);
 	rc_check(rc, "19-shmdt() failed!");
-	char response[63];
-	response[62] = '\0';
+        char *response;
+        int msgsize;
         if (fexist == 1){
-		snprintf(response, sizeof response, "%s", "deleted\n");
+                msgsize = 9;
+                response = (char *) malloc(sizeof(char) * msgsize + 1);
+                if (response == NULL){
+                        rc_check(12, "malloc() failed!");
+                }
+                response[msgsize] = '\0';
+                snprintf(response, msgsize, "%s", "deleted\n");
         }else{
-		snprintf(response, sizeof response, "%s", "no such file\n");
+                msgsize = 14;
+                response = (char *) malloc(sizeof(char) * msgsize + 1);
+                if (response == NULL){
+                        rc_check(12, "malloc() failed!");
+                }
+                response[msgsize] = '\0';
+                snprintf(response, msgsize, "%s", "no such file\n");
         }
-	send(clientSocket, response, sizeof(response), 0);
+        send(clientSocket, response, msgsize, 0);
+        free(response);
+
 }
 
 void readFile(int clientSocket, char *filename){
@@ -395,8 +428,8 @@ void readFile(int clientSocket, char *filename){
         struct storagedef *addr;
         int fexist = 0;          //does not exist
         int i;
-	char *recvBuffer =(char *) malloc(sizeof(char) * 64);;
-	rc_check(*recvBuffer, "malloc() failed!");
+	char *rrecvBuffer =(char *) malloc(sizeof(char) * 64);
+	rc_check(*rrecvBuffer, "malloc() failed!");
 	unsigned long long filesize;
 	filesize = 0;
 	struct storagedef *storage = (struct storagedef *) shmat(getStorageshmid(), NULL,0);
@@ -411,17 +444,17 @@ void readFile(int clientSocket, char *filename){
 				break;
 			}
 			// file exists and I can read it from shm and write to heap
-			recvBuffer = realloc(recvBuffer,  sizeof(char) * addr->filesize);
-			if (recvBuffer == NULL){
+			rrecvBuffer = realloc(rrecvBuffer,  sizeof(char) * addr->filesize);
+			if (rrecvBuffer == NULL){
 				rc_check(12, "realloc() failed!");
 			}
 			
-			memset(recvBuffer, 0, addr->filesize);
+			memset(rrecvBuffer, 0, addr->filesize);
 			 
 			addr->content = (char *) shmat(addr->shmidcontent, NULL,0);
 			int e;
 			for (e = 0; e <= addr->filesize;e++){
-				recvBuffer[e] = addr->content[e];
+				rrecvBuffer[e] = addr->content[e];
 			} 
 			filesize = addr->filesize;
 			sem_post(&addr->sem);
@@ -437,17 +470,31 @@ void readFile(int clientSocket, char *filename){
 	rc = shmdt(storage);
 	rc_check(rc, "23-shmdt() failed!");
 	// send response to the client
-	char response[63];
-	response[62] = '\0';
+	/*
+	int szl =  (int)log10(filesize)+1;
+	int msgsize = 
+	char listresp[7];
+	listresp[6] = '\0';
+	snprintf(listresp, 6, "%s%d%s", "ACK ", getUsed(), "\n");
+	send(clientSocket, listresp, 6, 0);
+	*/
+
 	if (fexist == 0 ){
-		snprintf(response, sizeof response, "%s", "no such file\n");
-		send(clientSocket, response, sizeof(response), 0);
+		int msgsize = 14;
+		char response[msgsize];
+		response[msgsize-1] = '\0';
+		snprintf(response, msgsize-1, "%s", "no such file\n");
+		send(clientSocket, response, msgsize-1, 0);
         }else{
-		snprintf(response, sizeof response, "%s%s%s%lld%s", "FILECONTENT ", filename, " ", filesize, "\n"); 
-		send(clientSocket, response, sizeof response, 0);
-		send(clientSocket, recvBuffer, filesize, 0);
+		int szl =  (int)log10(filesize)+1;
+		int msgsize = 12 + strlen(filename) + 1 + szl + 2;
+		char response[msgsize];
+		response[msgsize-1] =  '\0';
+		snprintf(response, msgsize, "%s%s%s%lld%s", "FILECONTENT ", filename, " ", filesize, "\n"); 
+		send(clientSocket, response, msgsize-1, 0);
+		send(clientSocket, rrecvBuffer, filesize, 0);
 	}
-	free(recvBuffer);
+	free(rrecvBuffer);
 	
 }
 
@@ -457,24 +504,45 @@ void listFiles(int clientSocket){
 	int i;
 	int y = 0;
 	struct storagedef *storage = (struct storagedef *) shmat(getStorageshmid(), NULL,0);
-	char listresp[63];
-        snprintf(listresp, sizeof listresp, "%s%d%s", "ACK ", getUsed(), "\n");
-        send(clientSocket, listresp, sizeof(listresp), 0);
-	 
-	for (i=0; i < getStorageSize(); i++){
-		struct storagedef address = storage[i];
-		struct storagedef *addr = (struct storagedef *) shmat(address.shmid, NULL, 0);
-		if (addr->state == 1){
-			char fname[63];
-			snprintf(fname, sizeof fname, "%s%s", addr->filename ,"\n");
-			send(clientSocket, fname, sizeof(fname), 0);
-			y++;
+	//printf("getused(%d)\n", getUsed());
+	if (getUsed() == 0){
+		char listresp[7]; 
+		listresp[6] = '\0';
+		snprintf(listresp, 6, "%s%d%s", "ACK ", getUsed(), "\n");
+		send(clientSocket, listresp, 6, 0);
+		rc = shmdt(storage);
+		rc_check(rc, "25-shmdt() failed!");
+	}else{
+	
+		int szl =  (int)log10(getUsed())+1;
+		int msgsize = 4 + szl + 1;
+		char listresp[msgsize];
+		listresp[msgsize-1] = '\0';
+        	snprintf(listresp, msgsize, "%s%d%s", "ACK ", getUsed(), "\n");
+		//printf("server(%s)", listresp);
+        	send(clientSocket, listresp, msgsize-1, 0);
+		 
+		for (i=0; i < getStorageSize(); i++){
+			struct storagedef address = storage[i];
+			struct storagedef *addr = (struct storagedef *) shmat(address.shmid, NULL, 0);
+			if (addr->state == 1){
+				int lsize = strlen(addr->filename) + 2;
+				char fname[lsize];
+				fname[lsize-1] = '\n';
+				//fname[strlen(addr->filename)+1] = '\0';
+				//snprintf(fname, strlen(addr->filename) + 1, "%s%s", addr->filename ,"\n");
+				snprintf(fname, lsize, "%s%s", addr->filename ,"\n");
+				//printf("s(%s)-(%d)", fname, lsize);
+			
+				send(clientSocket, fname, lsize, 0);
+				y++;
+			}
+			rc = shmdt(addr);
+			rc_check(rc, "24-shmdt() failed!");
 		}
-		rc = shmdt(addr);
-		rc_check(rc, "24-shmdt() failed!");
+		rc = shmdt(storage);
+		rc_check(rc, "25-shmdt() failed!");
 	}
-	rc = shmdt(storage);
-	rc_check(rc, "25-shmdt() failed!");
 }
 //check if specifig file exists
 // return 1 = file exists
@@ -546,16 +614,19 @@ void createFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 	rc = shmdt(storage);
 	rc_check(rc, "32-shmdt() failed!");
 	//send response to the client
-	char response[63];
-	response[62] = '\0';
-	if (fexist == 1){
-		 snprintf(response, sizeof response, "%s", "file exists\n");
-	}else{
-		 snprintf(response, sizeof response, "%s", "file created\n");
-	}
-	send(clientSocket, response, sizeof(response), 0);
-	
 	 
+	if (fexist == 1){
+		char resp[14];
+		resp[13] = '\0';
+		snprintf(resp, 13, "%s", "file exists\n");
+		send(clientSocket, resp, 13, 0);
+	}else{
+		char resp[15];
+		resp[14] = '\0';
+		snprintf(resp, 14, "%s", "file created\n");
+		send(clientSocket, resp, 14, 0);
+	}
+	
 }
 
 void initStorageOnce(int storagesize){

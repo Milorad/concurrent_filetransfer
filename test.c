@@ -24,20 +24,23 @@ int main(int argc, char *argv[]) {
 	 
 	//open socket
 	Socket = initConn();
-	//send different requests to the server
+	//send different requests to the server and get the response
 	if (!strcmp(type, "list")){
 		f_list(Socket);
+		getResponseList(Socket);
 	}else if(!strcmp(type, "create")){
 		f_create(Socket, localfilename);
+		getResponseCreate(Socket);
 	}else if(!strcmp(type, "read")){
 		f_read(Socket, remotefilename);
+		getResponseRead(Socket);
 	}else if(!strcmp(type, "update")){
 		f_update(Socket, localfilename, remotefilename);
+		getResponseUpdate(Socket);
 	}else if(!strcmp(type, "delete")){
 		f_delete(Socket, remotefilename);
+		getResponseDelete(Socket);
 	}
-	//getresponse
-	getresponse(type, Socket);
 	exit(0);
 
 }
