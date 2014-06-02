@@ -470,15 +470,6 @@ void readFile(int clientSocket, char *filename){
 	rc = shmdt(storage);
 	rc_check(rc, "23-shmdt() failed!");
 	// send response to the client
-	/*
-	int szl =  (int)log10(filesize)+1;
-	int msgsize = 
-	char listresp[7];
-	listresp[6] = '\0';
-	snprintf(listresp, 6, "%s%d%s", "ACK ", getUsed(), "\n");
-	send(clientSocket, listresp, 6, 0);
-	*/
-
 	if (fexist == 0 ){
 		int msgsize = 14;
 		char response[msgsize];
