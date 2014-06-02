@@ -11,6 +11,7 @@
 #include <regex.h>
 #include "math.h"
 #include <semaphore.h>
+#include <errno.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -176,7 +177,7 @@ int main(int argc, char *argv[]) {
 				//store clients file into heap first. Afterwards it will be copied to shared memory
 				char *recvBuffer = (char *) malloc(sizeof(char) * 64);
 				if (recvBuffer == NULL){
-					rc_check(12, "malloc() failed!");
+					rc_check(12, "1-malloc() failed!");
 				}
 				 
 				//helper to parse first line received from client
@@ -185,7 +186,9 @@ int main(int argc, char *argv[]) {
 					char rBuffer[RECVBUFFERSIZE];
 					int recvMsgSize = recv(clientSocket, rBuffer, RECVBUFFERSIZE-1, 0);
 					 
+					//printf("=(%s)=\n", rBuffer);
 					if (parseAction == 0){
+							char *rBufferSave = strdup(rBuffer);
 							/* Client is sending one of the following Requests
 							list\n
 							create filename length\n
@@ -249,19 +252,23 @@ int main(int argc, char *argv[]) {
 
 							}else{
 								//put stuff after \n into the buffer
+			
 								totalFileBytesReceived = sizeof(rBuffer)-t-1;
-								strncpy(recvBuffer, rBuffer+t, sizeof(rBuffer)-t-1);
+								strncpy(recvBuffer, rBufferSave+t, sizeof(rBuffer)-t-1);
+								//printf("%d---%s\n\n\n", totalFileBytesReceived, rBuffer);
 							}
 							parseAction = 1;
 					}else{
 						totalFileBytesReceived += recvMsgSize;
 						strncpy(recvBuffer+strlen(recvBuffer), rBuffer,sizeof(rBuffer));
+							//printf("\n\n%d-%s\n\n\n", totalFileBytesReceived, recvBuffer);
 						if (atoi(filesize) == totalFileBytesReceived){
 							break;
 						}
 					}
 					memset(rBuffer, 0, sizeof(rBuffer));
 				}
+				
 				//do job client requested
 				if (!strncmp(type, "list", 4)){
 					listFiles(clientSocket);
@@ -346,7 +353,7 @@ void updateFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 		msgsize = 9;
 		response = (char *) malloc(sizeof(char) * msgsize + 1);
 		if (response == NULL){
-			rc_check(12, "malloc() failed!");
+			rc_check(12, "2-malloc() failed!");
 		}
 		response[msgsize] = '\0';
 		snprintf(response, msgsize, "%s", "updated\n");
@@ -354,7 +361,7 @@ void updateFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 		msgsize = 14;
 		response = (char *) malloc(sizeof(char) * msgsize + 1);
 		if (response == NULL){
-                        rc_check(12, "malloc() failed!");
+                        rc_check(12, "3-malloc() failed!");
                 }
 		response[msgsize] = '\0';
 		snprintf(response, msgsize, "%s", "no such file\n");
@@ -403,7 +410,7 @@ void deleteFile(int clientSocket, char *filename){
                 msgsize = 9;
                 response = (char *) malloc(sizeof(char) * msgsize + 1);
                 if (response == NULL){
-                        rc_check(12, "malloc() failed!");
+                        rc_check(12, "4-malloc() failed!");
                 }
                 response[msgsize] = '\0';
                 snprintf(response, msgsize, "%s", "deleted\n");
@@ -411,7 +418,7 @@ void deleteFile(int clientSocket, char *filename){
                 msgsize = 14;
                 response = (char *) malloc(sizeof(char) * msgsize + 1);
                 if (response == NULL){
-                        rc_check(12, "malloc() failed!");
+                        rc_check(12, "5-malloc() failed!");
                 }
                 response[msgsize] = '\0';
                 snprintf(response, msgsize, "%s", "no such file\n");
@@ -427,8 +434,10 @@ void readFile(int clientSocket, char *filename){
         struct storagedef *addr;
         int fexist = 0;          //does not exist
         int i;
-	char *rrecvBuffer =(char *) malloc(sizeof(char) * 64);
-	rc_check(*rrecvBuffer, "malloc() failed!");
+	char *rrecvBuffer = (char *) malloc(sizeof(char) * 128);
+	if (rrecvBuffer == NULL){
+		rc_check(12, "6-malloc() failed!");
+	}
 	unsigned long long filesize;
 	filesize = 0;
 	struct storagedef *storage = (struct storagedef *) shmat(getStorageshmid(), NULL,0);
@@ -621,7 +630,7 @@ void createFile(int clientSocket, char *recvBuffer, char *filename, char *filesi
 
 void initStorageOnce(int storagesize){
 	int new_storage_shmid= shmget(IPC_PRIVATE, storagesize*sizeof(struct storagedef), IPC_CREAT | 0660|SHM_W);
-	rc_check(new_storage_shmid , "malloc() failed!");
+	rc_check(new_storage_shmid , "7-malloc() failed!");
 	setStorageshmid(new_storage_shmid);
 
 }

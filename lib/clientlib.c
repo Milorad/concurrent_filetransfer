@@ -182,14 +182,13 @@ void getResponseRead(int Socket){
 				} 
 			}
 			if (recvMsgSize == t){
-				 
 			}else{
 				char *recvBuffer =(char *) malloc(sizeof(char) * 64);
 				if (recvBuffer == NULL){
 					rc_check(12, "realloc() failed!");
 				}
 				totalFileBytesReceived = sizeof(rBuffer)-t-1;
-				strncpy(recvBuffer, rBuffer+t, sizeof(rBuffer)-t-1);
+				strncpy(recvBuffer, rBufferSave+t, sizeof(rBuffer)-t-1);
 				printf("%s", recvBuffer);
 				free(recvBuffer);
 			}
