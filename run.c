@@ -10,13 +10,12 @@
 #include <signal.h>
 #include <regex.h>
 #include "math.h"
+#include <semaphore.h>
 
 #define TRUE 1
 #define FALSE 0
 
 #define RECVBUFFERSIZE 64
-#define SHMSZ 16777216
-
 
 //current storage shmid
 int *storageshmid;	
@@ -633,6 +632,11 @@ void freeStorage(int size, int shmid){
 	struct storagedef *storage = (struct storagedef *) shmat(shmid, NULL,0);
 	for (i = 0; i < size; i++){
 		address = storage[i];
+		struct storagedef *addr = (struct storagedef *) shmat(address.shmid, NULL, 0);
+		rc = sem_destroy(&addr->sem);
+		rc_check(rc, "sem_destroy() failed");
+		rc = shmdt(addr);
+		rc_check(rc, "45-shmdt() failed");
 		rc = shmctl(address.shmid, IPC_RMID, NULL);
 		rc_check(rc, "9-shmctl() failed!");
 	}
@@ -650,6 +654,8 @@ void freeStorageAll(){
 	for (i = 0; i < getStorageSize(); i++){
                 address = storage[i];
                 addr = (struct storagedef *) shmat(address.shmid, NULL, 0);
+		rc = sem_destroy(&addr->sem);
+		rc_check(rc, "sem_destroy() failed");
 		if (addr->shmidcontent > 0){
                 	rc = shmctl(addr->shmidcontent, IPC_RMID, NULL);
 			rc_check(rc, "11-shmctl() failed!");
