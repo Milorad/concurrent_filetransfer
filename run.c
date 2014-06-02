@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
 							}else if(!strncmp(opt1, "create", 6)){
 								snprintf(filename, sizeof(filename), "%s", opt2);
 								snprintf(filesize, sizeof(filesize), "%s", opt3);
-								recvBuffer  = (char *) realloc(recvBuffer,  sizeof(char) * atoi(filesize)+ 1);
+								recvBuffer  = (char *) realloc(recvBuffer,  sizeof(char) * atoi(filesize)+ 64);
 								if (recvBuffer == NULL){
 									rc_check(12, "realloc() failed!"); 
 								}
@@ -237,7 +237,7 @@ int main(int argc, char *argv[]) {
 							}else if(!strncmp(opt1, "update", 6)){
 								snprintf(filename, sizeof(filename), "%s", opt2);
 								snprintf(filesize, sizeof(filesize), "%s", opt3);
-								recvBuffer  = (char *) realloc(recvBuffer,  sizeof(char) * atoi(filesize)+ 1);
+								recvBuffer  = (char *) realloc(recvBuffer,  sizeof(char) * atoi(filesize)+ 64);
 								if (recvBuffer == NULL){
 									rc_check(12, "realloc() failed!");
 								}
@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
 				}else if(!strncmp(type, "delete", 6)){
 					deleteFile(clientSocket, filename);
 				}
-				//free(bufferaddr);
+				free(recvBuffer);
 				//exit will cleanup all malloc'ed heap! see documentation
 				exit(0);
 			}		
